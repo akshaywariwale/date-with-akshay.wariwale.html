@@ -75,6 +75,11 @@ h1:focus, h2:focus { outline: none; }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn.big { flex: 1 1 140px; font-size: 1.1rem; }
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.field-wrap { display: flex; flex-direction: column; gap: 8px; }
+.field-wrap label { color: var(--gold); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; }
+.field { font: inherit; font-size: 1.05rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-height: 52px; width: 100%; }
+.field::placeholder { color: #9c7fa8; }
+.field:focus { outline: 3px solid var(--gold); outline-offset: 2px; border-color: var(--accent); }
 
 /* calendar */
 .cal { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 16px; }
@@ -170,9 +175,13 @@ body { margin: 0; }
     <p class="eyebrow">A question worth asking</p>
     <h1 tabindex="-1">Will you go on a <em>date</em> with me?</h1>
     <p class="lede">No pressure at all. Whatever you pick, I will be happy you took a moment to answer.</p>
+    <div class="field-wrap">
+      <label for="who">Your name</label>
+      <input class="field" id="who" type="text" maxlength="60" autocomplete="name" placeholder="Type your name here">
+    </div>
     <div class="row">
-      <button class="btn primary big" id="yes" type="button">Yes</button>
-      <button class="btn big" id="no" type="button">No</button>
+      <button class="btn primary big" id="yes" type="button" disabled>Yes</button>
+      <button class="btn big" id="no" type="button" disabled>No</button>
     </div>
   </section>
 
@@ -280,6 +289,7 @@ body { margin: 0; }
   var state = { date: null, time: null, foods: [], movie: null };
 
   function $(id) { return document.getElementById(id); }
+  function who() { return ($("who").value || "").trim(); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function key(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
   function longDate(d) { return d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
@@ -396,7 +406,8 @@ body { margin: 0; }
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
-        _subject: kind === "no" ? "Her answer: No" : "Her answer: YES, it is a date!",
+        _subject: who() + (kind === "no" ? " answered: No" : " answered: YES, it is a date!"),
+        name: who(),
         _template: "table",
         _captcha: "false",
         answer: text
@@ -418,12 +429,16 @@ body { margin: 0; }
   }
 
   function summaryText() {
-    return "Yes, it's a date! " + longDate(state.date) + " at " + state.time + ". Food: " + state.foods.join(", ") + ". Movie: " + movieName() + ".";
+    return who() + " says: Yes, it's a date! " + longDate(state.date) + " at " + state.time + ". Food: " + state.foods.join(", ") + ". Movie: " + movieName() + ".";
   }
 
   /* wiring */
+  $("who").addEventListener("input", function () {
+    var ok = who().length > 0;
+    $("yes").disabled = !ok; $("no").disabled = !ok;
+  });
   $("yes").addEventListener("click", function () { renderCal(); showPick(); go("day"); });
-  $("no").addEventListener("click", function () { setupLinks("No, thank you. Thanks for asking me.", "no"); go("no"); });
+  $("no").addEventListener("click", function () { setupLinks(who() + " says: No, thank you. Thanks for asking me.", "no"); go("no"); });
   $("undo").addEventListener("click", function () { go("q"); });
   $("prev").addEventListener("click", function () { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); renderCal(); });
   $("next").addEventListener("click", function () { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderCal(); });
