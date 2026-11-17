@@ -180,7 +180,7 @@ body { margin: 0; }
     <p class="eyebrow">Thank you</p>
     <h2 tabindex="-1">That is completely okay.</h2>
     <p class="lede">I appreciate you being honest with me. I hope your day is a good one.</p>
-    <div class="row"><a class="btn primary" id="send-mail-no" hidden target="_blank" rel="noopener">Let me know by email</a><button class="btn" id="undo" type="button">I changed my mind</button></div>
+    <div class="row"><button class="btn" id="undo" type="button">I changed my mind</button></div>
   </section>
 
   <section class="step" id="s-day" hidden>
@@ -248,9 +248,7 @@ body { margin: 0; }
     <p class="foot-pics" id="sum-pics" aria-hidden="true"></p>
     <p class="note" id="save-note" aria-live="polite"></p>
     <div class="row">
-      <a class="btn primary" id="send-mail" hidden target="_blank" rel="noopener">Send by email</a>
-      <a class="btn primary" id="send-wa" hidden target="_blank" rel="noopener">Send on WhatsApp</a>
-      <button class="btn" id="copy" type="button">Copy these details</button>
+      <button class="btn primary" id="retry" type="button" hidden>Send again</button>
       <button class="btn" id="redo" type="button">Change something</button>
     </div>
   </section>
@@ -258,10 +256,7 @@ body { margin: 0; }
 
 <script>
 (function () {
-  /* ---- FILL THESE IN BEFORE YOU PUBLISH ---- */
-  var YOUR_EMAIL = "";      /* e.g. "you@example.com" : answers arrive here */
-  var YOUR_WHATSAPP = "";   /* digits only with country code, e.g. "919876543210" */
-  /* ------------------------------------------ */
+  var YOUR_EMAIL = "akshaywariwale44@gmail.com";   /* answers arrive here */
   var FOODS = [
     { n: "Sushi", e: "🍣" }, { n: "Pasta", e: "🍝" }, { n: "Pizza", e: "🍕" },
     { n: "Biryani", e: "🍛" }, { n: "Kebabs", e: "🍢" }, { n: "Tacos", e: "🌮" },
@@ -394,18 +389,32 @@ body { margin: 0; }
     $("finish").disabled = !state.movie;
   }
 
-  function setupLinks(text) {
-    var enc = encodeURIComponent(text);
-    var digits = YOUR_WHATSAPP.replace(/\D/g, "");
-    var mail = YOUR_EMAIL ? "mailto:" + YOUR_EMAIL + "?subject=" + encodeURIComponent("My answer") + "&body=" + enc : "";
-    var wa = digits ? "https://wa.me/" + digits + "?text=" + enc : "";
-    [["send-mail", mail], ["send-mail-no", mail], ["send-wa", wa]].forEach(function (p) {
-      var a = $(p[0]); if (!a) return;
-      a.hidden = !p[1]; if (p[1]) a.href = p[1];
+  /* sends the answer to YOUR_EMAIL automatically, no sign-in needed (FormSubmit) */
+  function autoSend(text, kind) {
+    if (!YOUR_EMAIL || !window.fetch) return Promise.resolve(false);
+    return fetch("https://formsubmit.co/ajax/" + encodeURIComponent(YOUR_EMAIL), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({
+        _subject: kind === "no" ? "Her answer: No" : "Her answer: YES, it is a date!",
+        _template: "table",
+        _captcha: "false",
+        answer: text
+      })
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+
+  var lastText = "", lastKind = "";
+  function setupLinks(text, kind) {
+    lastText = text; lastKind = kind;
+    $("retry").hidden = true;
+    $("save-note").textContent = "Sending your answer...";
+    autoSend(text, kind).then(function (ok) {
+      $("save-note").textContent = ok
+        ? "Your answer has been sent to me. Thank you!"
+        : "Sorry, your answer could not be sent. Please check your internet and tap Send again.";
+      $("retry").hidden = ok;
     });
-    $("save-note").textContent = (mail || wa)
-      ? "Tap a button to send me your answer."
-      : "Copy the details below and send them to me.";
   }
 
   function summaryText() {
@@ -414,7 +423,7 @@ body { margin: 0; }
 
   /* wiring */
   $("yes").addEventListener("click", function () { renderCal(); showPick(); go("day"); });
-  $("no").addEventListener("click", function () { setupLinks("No, thank you. Thanks for asking me."); go("no"); });
+  $("no").addEventListener("click", function () { setupLinks("No, thank you. Thanks for asking me.", "no"); go("no"); });
   $("undo").addEventListener("click", function () { go("q"); });
   $("prev").addEventListener("click", function () { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); renderCal(); });
   $("next").addEventListener("click", function () { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderCal(); });
@@ -438,20 +447,11 @@ body { margin: 0; }
     $("sum-food").textContent = state.foods.join(", ");
     var pics = FOODS.filter(function (f) { return state.foods.indexOf(f.n) >= 0; }).map(function (f) { return f.e; }).join(" ");
     $("sum-pics").textContent = pics;
-    setupLinks(summaryText());
+    setupLinks(summaryText(), "yes");
     go("done");
   });
   $("redo").addEventListener("click", function () { renderCal(); showPick(); go("day"); });
-  $("copy").addEventListener("click", function () {
-    var text = summaryText(), btn = $("copy");
-    function ok() { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy these details"; }, 1800); }
-    function fallback() {
-      var r = document.createRange(); r.selectNodeContents($("sum-food").parentNode.parentNode);
-      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-      btn.textContent = "Selected, press copy";
-    }
-    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch (e) { fallback(); }
-  });
+  $("retry").addEventListener("click", function () { setupLinks(lastText, lastKind); });
 
   go("q");
 })();
